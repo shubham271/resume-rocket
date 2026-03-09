@@ -132,6 +132,32 @@ const Evaluate = () => {
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const jdInputRef = useRef<HTMLInputElement>(null);
 
+  const fetchHistory = useCallback(async () => {
+    if (!user) return;
+    setLoadingHistory(true);
+    const { data, error } = await supabase
+      .from("resume_analyses")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (!error && data) setHistory(data);
+    setLoadingHistory(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const deleteAnalysis = async (id: string) => {
+    const { error } = await supabase.from("resume_analyses").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete analysis");
+    } else {
+      setHistory(prev => prev.filter(h => h.id !== id));
+      toast.success("Analysis deleted");
+    }
+  };
+
   const handleResumeDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setResumeDragActive(false);
