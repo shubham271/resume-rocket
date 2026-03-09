@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
-import { FileText, Building2, Home, Sparkles } from "lucide-react";
+import { FileText, Building2, Home, Sparkles, LogIn } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const Navbar = () => {
   const location = useLocation();
@@ -37,6 +38,12 @@ const Navbar = () => {
               </Link>
             );
           })}
+          <Button asChild variant="default" size="sm" className="ml-2 gap-2 rounded-xl">
+            <Link to="/auth">
+              <LogIn className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign In</span>
+            </Link>
+          </Button>
         </div>
       </div>
     </nav>
