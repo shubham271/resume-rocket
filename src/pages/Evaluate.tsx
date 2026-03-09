@@ -240,7 +240,10 @@ const Evaluate = () => {
         suggestions: analysis.suggestions,
       });
       if (error) toast.error("Failed to save analysis");
-      else toast.success("Analysis saved to your dashboard!");
+      else {
+        toast.success("Analysis saved!");
+        fetchHistory();
+      }
     }
   };
 
