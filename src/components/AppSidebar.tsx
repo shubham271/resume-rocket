@@ -1,7 +1,7 @@
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
+  LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles, Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -15,6 +15,7 @@ const AppSidebar = () => {
     { to: "/evaluate", label: "Evaluate", icon: FileText },
     { to: "/jobs", label: "Job Posts", icon: Briefcase },
     { to: "/my-companies", label: "Companies", icon: Building2 },
+    { to: "/account", label: "Account", icon: Settings },
   ];
 
   return (
