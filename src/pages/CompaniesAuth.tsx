@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Building2, Plus, Trash2, Loader2, Eye } from "lucide-react";
+import { Building2, Plus, Trash2, Loader2, Eye, Globe, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -12,6 +12,8 @@ interface FollowedCompany {
   id: string;
   company_name: string;
   company_industry: string | null;
+  homepage_url: string | null;
+  careers_url: string | null;
   created_at: string;
 }
 
@@ -21,6 +23,8 @@ const CompaniesPage = () => {
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newIndustry, setNewIndustry] = useState("");
+  const [newHomepage, setNewHomepage] = useState("");
+  const [newCareers, setNewCareers] = useState("");
   const [adding, setAdding] = useState(false);
 
   const fetchCompanies = useCallback(async () => {
@@ -28,11 +32,11 @@ const CompaniesPage = () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("followed_companies")
-      .select("id, company_name, company_industry, created_at")
+      .select("id, company_name, company_industry, homepage_url, careers_url, created_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (!error && data) setCompanies(data);
+    if (!error && data) setCompanies(data as FollowedCompany[]);
     setLoading(false);
   }, [user]);
 
@@ -54,7 +58,9 @@ const CompaniesPage = () => {
       user_id: user.id,
       company_name: trimmed,
       company_industry: newIndustry.trim() || null,
-    });
+      homepage_url: newHomepage.trim() || null,
+      careers_url: newCareers.trim() || null,
+    } as any);
 
     if (error) {
       toast.error("Failed to add company");
@@ -62,6 +68,8 @@ const CompaniesPage = () => {
       toast.success(`Added ${trimmed} to your watchlist`);
       setNewName("");
       setNewIndustry("");
+      setNewHomepage("");
+      setNewCareers("");
       fetchCompanies();
     }
     setAdding(false);
@@ -96,8 +104,8 @@ const CompaniesPage = () => {
         <h2 className="mb-4 font-display text-lg font-semibold flex items-center gap-2">
           <Plus className="h-5 w-5 text-primary" /> Add a Company
         </h2>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
             <Label htmlFor="companyName">Company Name *</Label>
             <Input
               id="companyName"
@@ -105,10 +113,9 @@ const CompaniesPage = () => {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               className="rounded-xl"
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="space-y-2">
             <Label htmlFor="industry">Industry (optional)</Label>
             <Input
               id="industry"
@@ -116,14 +123,33 @@ const CompaniesPage = () => {
               value={newIndustry}
               onChange={(e) => setNewIndustry(e.target.value)}
               className="rounded-xl"
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
           </div>
-          <Button onClick={handleAdd} disabled={adding || !newName.trim()} className="gap-2 rounded-xl">
-            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Add
-          </Button>
+          <div className="space-y-2">
+            <Label htmlFor="homepage">Homepage URL (optional)</Label>
+            <Input
+              id="homepage"
+              placeholder="https://company.com"
+              value={newHomepage}
+              onChange={(e) => setNewHomepage(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="careers">Careers Page URL (optional)</Label>
+            <Input
+              id="careers"
+              placeholder="https://company.com/careers"
+              value={newCareers}
+              onChange={(e) => setNewCareers(e.target.value)}
+              className="rounded-xl"
+            />
+          </div>
         </div>
+        <Button onClick={handleAdd} disabled={adding || !newName.trim()} className="mt-4 gap-2 rounded-xl">
+          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          Add to Watchlist
+        </Button>
       </div>
 
       {/* Company List */}
@@ -145,33 +171,59 @@ const CompaniesPage = () => {
           {companies.map((company) => (
             <div
               key={company.id}
-              className="flex items-center justify-between gap-4 rounded-2xl border bg-card px-6 py-4 transition-all hover:shadow-md hover:shadow-primary/5"
+              className="rounded-2xl border bg-card px-6 py-4 transition-all hover:shadow-md hover:shadow-primary/5"
             >
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent">
-                  <Building2 className="h-5 w-5 text-accent-foreground" />
-                </div>
-                <div>
-                  <p className="font-display font-semibold">{company.company_name}</p>
-                  <div className="mt-0.5 flex items-center gap-2">
-                    {company.company_industry && (
-                      <Badge variant="secondary" className="rounded-md text-xs">{company.company_industry}</Badge>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      Added {new Date(company.created_at).toLocaleDateString()}
-                    </span>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent">
+                    <Building2 className="h-5 w-5 text-accent-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-display font-semibold">{company.company_name}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                      {company.company_industry && (
+                        <Badge variant="secondary" className="rounded-md text-xs">{company.company_industry}</Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        Added {new Date(company.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemove(company)}
+                  className="gap-1.5 rounded-xl text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remove
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleRemove(company)}
-                className="gap-1.5 rounded-xl text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                Remove
-              </Button>
+              {(company.homepage_url || company.careers_url) && (
+                <div className="mt-3 flex flex-wrap items-center gap-3 pl-15">
+                  {company.homepage_url && (
+                    <a
+                      href={company.homepage_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-secondary/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                    >
+                      <Globe className="h-3.5 w-3.5" /> Website <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </a>
+                  )}
+                  {company.careers_url && (
+                    <a
+                      href={company.careers_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/60 px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> Careers Page
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
