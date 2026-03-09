@@ -55,7 +55,7 @@ const Auth = () => {
             {isLogin ? "Welcome back" : "Create account"}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            {isLogin ? "Sign in to access your dashboard" : "Get started with ResumeIQ"}
+            {isLogin ? "Sign in to access your dashboard" : "Get started with Emplyoo"}
           </p>
         </div>
 

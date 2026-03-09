@@ -28,7 +28,7 @@ const AppSidebar = () => {
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
           <Sparkles className="h-5 w-5 text-primary-foreground" />
         </div>
-        {!collapsed && <span className="font-display text-lg font-bold">ResumeIQ</span>}
+        {!collapsed && <span className="font-display text-lg font-bold">Emplyoo</span>}
       </div>
 
       {/* Nav */}

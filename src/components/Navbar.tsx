@@ -18,7 +18,7 @@ const Navbar = () => {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
             <Sparkles className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-display text-xl font-bold tracking-tight">ResumeIQ</span>
+          <span className="font-display text-xl font-bold tracking-tight">Emplyoo</span>
         </Link>
         <div className="flex items-center gap-1">
           {links.map(({ to, label, icon: Icon }) => {
