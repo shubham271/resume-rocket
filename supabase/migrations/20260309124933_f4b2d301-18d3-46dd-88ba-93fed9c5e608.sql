@@ -1,0 +1,1 @@
+ALTER TABLE public.followed_companies ADD COLUMN homepage_url text, ADD COLUMN careers_url text;
