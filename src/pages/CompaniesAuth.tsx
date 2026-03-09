@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Building2, Plus, Trash2, Loader2, Eye, Globe, ExternalLink } from "lucide-react";
+import { Building2, Plus, Trash2, Loader2, Eye, Globe, ExternalLink, Pencil, Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,9 @@ const CompaniesPage = () => {
   const [newHomepage, setNewHomepage] = useState("");
   const [newCareers, setNewCareers] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", industry: "", homepage: "", careers: "" });
+  const [saving, setSaving] = useState(false);
 
   const fetchCompanies = useCallback(async () => {
     if (!user) return;
@@ -88,6 +91,57 @@ const CompaniesPage = () => {
       toast.success(`Removed ${company.company_name}`);
       setCompanies((prev) => prev.filter((c) => c.id !== company.id));
     }
+  };
+
+  const startEditing = (company: FollowedCompany) => {
+    setEditingId(company.id);
+    setEditForm({
+      name: company.company_name,
+      industry: company.company_industry || "",
+      homepage: company.homepage_url || "",
+      careers: company.careers_url || "",
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setEditForm({ name: "", industry: "", homepage: "", careers: "" });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!user || !editingId || !editForm.name.trim()) return;
+
+    setSaving(true);
+    const { error } = await supabase
+      .from("followed_companies")
+      .update({
+        company_name: editForm.name.trim(),
+        company_industry: editForm.industry.trim() || null,
+        homepage_url: editForm.homepage.trim() || null,
+        careers_url: editForm.careers.trim() || null,
+      })
+      .eq("id", editingId);
+
+    if (error) {
+      toast.error("Failed to update company");
+    } else {
+      toast.success(`Updated ${editForm.name.trim()}`);
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.id === editingId
+            ? {
+                ...c,
+                company_name: editForm.name.trim(),
+                company_industry: editForm.industry.trim() || null,
+                homepage_url: editForm.homepage.trim() || null,
+                careers_url: editForm.careers.trim() || null,
+              }
+            : c
+        )
+      );
+      setEditingId(null);
+    }
+    setSaving(false);
   };
 
   return (
@@ -168,64 +222,145 @@ const CompaniesPage = () => {
           <p className="text-sm font-medium text-muted-foreground">
             {companies.length} {companies.length === 1 ? "company" : "companies"} in your watchlist
           </p>
-          {companies.map((company) => (
-            <div
-              key={company.id}
-              className="rounded-2xl border bg-card px-6 py-4 transition-all hover:shadow-md hover:shadow-primary/5"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent">
-                    <Building2 className="h-5 w-5 text-accent-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-display font-semibold">{company.company_name}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                      {company.company_industry && (
-                        <Badge variant="secondary" className="rounded-md text-xs">{company.company_industry}</Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        Added {new Date(company.created_at).toLocaleDateString()}
-                      </span>
+          {companies.map((company) => {
+            const isEditing = editingId === company.id;
+
+            return (
+              <div
+                key={company.id}
+                className="rounded-2xl border bg-card px-6 py-4 transition-all hover:shadow-md hover:shadow-primary/5"
+              >
+                {isEditing ? (
+                  /* Edit Mode */
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Company Name *</Label>
+                        <Input
+                          value={editForm.name}
+                          onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                          className="rounded-xl"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Industry</Label>
+                        <Input
+                          value={editForm.industry}
+                          onChange={(e) => setEditForm((f) => ({ ...f, industry: e.target.value }))}
+                          className="rounded-xl"
+                          placeholder="e.g. FinTech, AI..."
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Homepage URL</Label>
+                        <Input
+                          value={editForm.homepage}
+                          onChange={(e) => setEditForm((f) => ({ ...f, homepage: e.target.value }))}
+                          className="rounded-xl"
+                          placeholder="https://company.com"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Careers Page URL</Label>
+                        <Input
+                          value={editForm.careers}
+                          onChange={(e) => setEditForm((f) => ({ ...f, careers: e.target.value }))}
+                          className="rounded-xl"
+                          placeholder="https://company.com/careers"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        disabled={saving || !editForm.name.trim()}
+                        className="gap-1.5 rounded-xl"
+                      >
+                        {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        Save
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={cancelEditing}
+                        disabled={saving}
+                        className="gap-1.5 rounded-xl"
+                      >
+                        <X className="h-3.5 w-3.5" /> Cancel
+                      </Button>
                     </div>
                   </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemove(company)}
-                  className="gap-1.5 rounded-xl text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Remove
-                </Button>
+                ) : (
+                  /* View Mode */
+                  <>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent">
+                          <Building2 className="h-5 w-5 text-accent-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-display font-semibold">{company.company_name}</p>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                            {company.company_industry && (
+                              <Badge variant="secondary" className="rounded-md text-xs">{company.company_industry}</Badge>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              Added {new Date(company.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEditing(company)}
+                          className="gap-1.5 rounded-xl text-muted-foreground hover:text-foreground"
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemove(company)}
+                          className="gap-1.5 rounded-xl text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                    {(company.homepage_url || company.careers_url) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-3 pl-15">
+                        {company.homepage_url && (
+                          <a
+                            href={company.homepage_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-secondary/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
+                          >
+                            <Globe className="h-3.5 w-3.5" /> Website <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                          </a>
+                        )}
+                        {company.careers_url && (
+                          <a
+                            href={company.careers_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-accent/60 px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" /> Careers Page
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-              {(company.homepage_url || company.careers_url) && (
-                <div className="mt-3 flex flex-wrap items-center gap-3 pl-15">
-                  {company.homepage_url && (
-                    <a
-                      href={company.homepage_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-secondary/60 px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary"
-                    >
-                      <Globe className="h-3.5 w-3.5" /> Website <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                    </a>
-                  )}
-                  {company.careers_url && (
-                    <a
-                      href={company.careers_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-accent/60 px-3 py-1.5 text-xs font-medium text-accent-foreground transition-colors hover:bg-accent"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" /> Careers Page
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
