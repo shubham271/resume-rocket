@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Briefcase, MapPin, ExternalLink, Building2, Loader2, RefreshCw, ChevronDown, ChevronRight, Search, Filter } from "lucide-react";
+import { Briefcase, MapPin, ExternalLink, Building2, Loader2, RefreshCw, ChevronDown, ChevronRight, Search, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 interface ExtractedJob {
   title: string;
@@ -27,6 +28,8 @@ interface CompanyJobGroup {
   jobs: ExtractedJob[];
   loading: boolean;
   error: boolean;
+  fetchedAt: string | null;
+  cached: boolean;
 }
 
 const Jobs = () => {
@@ -55,7 +58,7 @@ const Jobs = () => {
     fetchCompanies();
   }, [fetchCompanies]);
 
-  const fetchJobs = useCallback(async () => {
+  const fetchJobs = useCallback(async (force = false) => {
     const withCareers = companies.filter((c) => c.careers_url);
     if (withCareers.length === 0) return;
 
@@ -65,44 +68,75 @@ const Jobs = () => {
       jobs: [],
       loading: true,
       error: false,
+      fetchedAt: null,
+      cached: false,
     }));
     setGroups(newGroups);
-    // Expand all by default
     setExpandedCompanies(new Set(withCareers.map((c) => c.company_name)));
 
-    // Fetch in parallel
     const results = await Promise.allSettled(
       withCareers.map(async (company) => {
         const { data, error } = await supabase.functions.invoke("extract-jobs", {
-          body: { careers_url: company.careers_url, company_name: company.company_name },
+          body: { careers_url: company.careers_url, company_name: company.company_name, force },
         });
         if (error || !data?.success) throw new Error("Failed");
-        return { company: company.company_name, jobs: data.jobs || [] };
+        return {
+          company: company.company_name,
+          jobs: data.jobs || [],
+          fetchedAt: data.fetched_at || null,
+          cached: data.cached || false,
+        };
       })
     );
 
     const finalGroups: CompanyJobGroup[] = withCareers.map((c, i) => {
       const result = results[i];
       if (result.status === "fulfilled") {
-        return { company: c.company_name, jobs: result.value.jobs, loading: false, error: false };
+        return {
+          company: c.company_name,
+          jobs: result.value.jobs,
+          loading: false,
+          error: false,
+          fetchedAt: result.value.fetchedAt,
+          cached: result.value.cached,
+        };
       }
-      return { company: c.company_name, jobs: [], loading: false, error: true };
+      return { company: c.company_name, jobs: [], loading: false, error: true, fetchedAt: null, cached: false };
     });
 
     setGroups(finalGroups);
     setFetching(false);
 
     const totalJobs = finalGroups.reduce((s, g) => s + g.jobs.length, 0);
+    const cachedCount = finalGroups.filter((g) => g.cached).length;
     if (totalJobs > 0) {
-      toast.success(`Found ${totalJobs} job${totalJobs === 1 ? "" : "s"} across ${finalGroups.filter((g) => g.jobs.length > 0).length} companies`);
+      const msg = cachedCount === finalGroups.length
+        ? `Loaded ${totalJobs} cached jobs`
+        : `Found ${totalJobs} jobs across ${finalGroups.filter((g) => g.jobs.length > 0).length} companies`;
+      toast.success(msg);
     }
   }, [companies]);
 
   useEffect(() => {
     if (companies.length > 0 && groups.length === 0 && !fetching) {
-      fetchJobs();
+      fetchJobs(false);
     }
   }, [companies]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const canForceRefresh = useCallback(() => {
+    if (groups.length === 0) return true;
+    // Allow force refresh if any group was fetched more than 24h ago
+    return groups.some((g) => {
+      if (!g.fetchedAt) return true;
+      const hoursSince = (Date.now() - new Date(g.fetchedAt).getTime()) / (1000 * 60 * 60);
+      return hoursSince >= 24;
+    });
+  }, [groups]);
+
+  const oldestFetchedAt = groups
+    .filter((g) => g.fetchedAt)
+    .map((g) => new Date(g.fetchedAt!).getTime())
+    .sort((a, b) => a - b)[0];
 
   const toggleCompany = (name: string) => {
     setExpandedCompanies((prev) => {
@@ -116,10 +150,8 @@ const Jobs = () => {
   const expandAll = () => setExpandedCompanies(new Set(groups.map((g) => g.company)));
   const collapseAll = () => setExpandedCompanies(new Set());
 
-  // Collect all departments
   const allDepartments = Array.from(new Set(groups.flatMap((g) => g.jobs.map((j) => j.department).filter(Boolean)))).sort();
 
-  // Filter jobs
   const filteredGroups = groups.map((group) => ({
     ...group,
     jobs: group.jobs.filter((job) => {
@@ -145,6 +177,7 @@ const Jobs = () => {
   }
 
   const companiesWithCareers = companies.filter((c) => c.careers_url);
+  const refreshAllowed = canForceRefresh();
 
   return (
     <div className="p-6 md:p-10">
@@ -157,12 +190,35 @@ const Jobs = () => {
               ? `${totalAll} openings from ${groups.filter((g) => g.jobs.length > 0).length} companies`
               : "Add companies with careers page links to see their job openings."}
           </p>
+          {oldestFetchedAt && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              Last refreshed {formatDistanceToNow(new Date(oldestFetchedAt), { addSuffix: true })}
+              {!refreshAllowed && " · Next refresh available in 24h"}
+            </p>
+          )}
         </div>
         {companiesWithCareers.length > 0 && (
-          <Button variant="outline" onClick={fetchJobs} disabled={fetching} className="gap-2 rounded-xl shrink-0">
-            {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
-          </Button>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (!refreshAllowed) {
+                  toast.info("Jobs are refreshed once per day. Try again later.");
+                  return;
+                }
+                fetchJobs(true);
+              }}
+              disabled={fetching}
+              className="gap-2 rounded-xl"
+            >
+              {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+            {!refreshAllowed && (
+              <span className="text-[10px] text-muted-foreground">Available once per day</span>
+            )}
+          </div>
         )}
       </div>
 
@@ -214,7 +270,6 @@ const Jobs = () => {
                 </div>
               </div>
 
-              {/* Department chips */}
               {allDepartments.length > 1 && (
                 <div className="flex flex-wrap gap-2">
                   <Badge
@@ -256,7 +311,6 @@ const Jobs = () => {
 
               return (
                 <div key={group.company} className="rounded-2xl border bg-card overflow-hidden">
-                  {/* Company Header */}
                   <button
                     onClick={() => toggleCompany(group.company)}
                     className="flex w-full items-center justify-between gap-4 p-5 text-left transition-colors hover:bg-secondary/30"
@@ -273,6 +327,11 @@ const Jobs = () => {
                             : group.error
                             ? "Failed to load"
                             : `${group.jobs.length} ${group.jobs.length === 1 ? "opening" : "openings"}`}
+                          {group.fetchedAt && !group.loading && (
+                            <span className="ml-2 text-xs opacity-60">
+                              · {formatDistanceToNow(new Date(group.fetchedAt), { addSuffix: true })}
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -290,7 +349,6 @@ const Jobs = () => {
                     </div>
                   </button>
 
-                  {/* Jobs List */}
                   {isExpanded && !group.loading && (
                     <div className="border-t divide-y">
                       {group.jobs.length === 0 ? (
