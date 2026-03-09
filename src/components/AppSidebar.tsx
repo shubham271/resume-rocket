@@ -54,13 +54,27 @@ const AppSidebar = () => {
       {/* User + Collapse */}
       <div className="border-t p-3 space-y-2">
         {!collapsed && (
-          <div className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5">
+          <div
+            className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5 cursor-pointer hover:bg-secondary transition-colors"
+            onClick={() => navigate("/account")}
+            title="Account Settings"
+          >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
               <User className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{user?.email}</p>
+              <p className="text-xs text-muted-foreground">Account Settings</p>
             </div>
+          </div>
+        )}
+        {collapsed && (
+          <div
+            className="flex items-center justify-center rounded-xl bg-secondary/50 p-2 cursor-pointer hover:bg-secondary transition-colors"
+            onClick={() => navigate("/account")}
+            title="Account Settings"
+          >
+            <User className="h-5 w-5 text-primary" />
           </div>
         )}
         <div className="flex items-center gap-2">
