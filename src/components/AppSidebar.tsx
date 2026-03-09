@@ -15,7 +15,6 @@ const AppSidebar = () => {
     { to: "/evaluate", label: "Evaluate", icon: FileText },
     { to: "/jobs", label: "Job Posts", icon: Briefcase },
     { to: "/my-companies", label: "Companies", icon: Building2 },
-    { to: "/account", label: "Account", icon: Settings },
   ];
 
   return (
