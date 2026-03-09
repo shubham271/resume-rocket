@@ -1,3 +1,5 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -9,13 +11,51 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { careers_url, company_name } = await req.json();
+    const { careers_url, company_name, force } = await req.json();
 
     if (!careers_url) {
       return new Response(
         JSON.stringify({ success: false, error: 'Careers URL is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Get auth token from request
+    const authHeader = req.headers.get('Authorization');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: authHeader || '' } },
+    });
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check cache first (unless force refresh)
+    if (!force) {
+      const { data: cached } = await supabase
+        .from('cached_jobs')
+        .select('jobs, fetched_at')
+        .eq('user_id', user.id)
+        .eq('company_name', company_name)
+        .single();
+
+      if (cached) {
+        const fetchedAt = new Date(cached.fetched_at);
+        const hoursSince = (Date.now() - fetchedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursSince < 24) {
+          console.log(`Cache hit for ${company_name} (${hoursSince.toFixed(1)}h old)`);
+          return new Response(
+            JSON.stringify({ success: true, jobs: cached.jobs, cached: true, fetched_at: cached.fetched_at }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
     }
 
     const FIRECRAWL_API_KEY = Deno.env.get('FIRECRAWL_API_KEY');
@@ -34,7 +74,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 1: Scrape the careers page
+    // Scrape the careers page
     console.log('Scraping careers page:', careers_url);
     const scrapeResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
       method: 'POST',
@@ -67,7 +107,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Use AI to extract structured job listings
+    // Use AI to extract structured job listings
     const truncatedMarkdown = markdown.substring(0, 8000);
 
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -167,10 +207,19 @@ Deno.serve(async (req) => {
       apply_url: j.apply_url || careers_url,
     }));
 
-    console.log(`Extracted ${jobs.length} jobs for ${company_name}`);
+    // Save to cache (upsert)
+    const now = new Date().toISOString();
+    await supabase
+      .from('cached_jobs')
+      .upsert(
+        { user_id: user.id, company_name, jobs, fetched_at: now },
+        { onConflict: 'user_id,company_name' }
+      );
+
+    console.log(`Extracted and cached ${jobs.length} jobs for ${company_name}`);
 
     return new Response(
-      JSON.stringify({ success: true, jobs }),
+      JSON.stringify({ success: true, jobs, cached: false, fetched_at: now }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
