@@ -1,166 +1,181 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Building2, MapPin, Users, Heart, ExternalLink, Search } from "lucide-react";
+import { Building2, Plus, Trash2, Loader2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
 
-interface Job {
+interface FollowedCompany {
   id: string;
-  title: string;
-  location: string;
-  type: string;
-  posted: string;
+  company_name: string;
+  company_industry: string | null;
+  created_at: string;
 }
-
-interface Company {
-  id: string;
-  name: string;
-  industry: string;
-  logo: string;
-  employees: string;
-  location: string;
-  jobs: Job[];
-}
-
-const companiesData: Company[] = [
-  { id: "1", name: "TechNova", industry: "AI / Machine Learning", logo: "🚀", employees: "500-1000", location: "San Francisco, CA",
-    jobs: [
-      { id: "j1", title: "Senior ML Engineer", location: "Remote", type: "Full-time", posted: "2d ago" },
-      { id: "j2", title: "Frontend Developer (React)", location: "SF, CA", type: "Full-time", posted: "5d ago" },
-    ],
-  },
-  { id: "2", name: "CloudScale", industry: "Cloud Infrastructure", logo: "☁️", employees: "1000-5000", location: "Seattle, WA",
-    jobs: [
-      { id: "j3", title: "DevOps Engineer", location: "Seattle, WA", type: "Full-time", posted: "1d ago" },
-      { id: "j4", title: "Backend Developer (Go)", location: "Remote", type: "Contract", posted: "3d ago" },
-    ],
-  },
-  { id: "3", name: "DesignCraft", industry: "Design Tools", logo: "🎨", employees: "100-500", location: "New York, NY",
-    jobs: [
-      { id: "j6", title: "UX Researcher", location: "NY, NY", type: "Full-time", posted: "4d ago" },
-    ],
-  },
-  { id: "4", name: "FinEdge", industry: "FinTech", logo: "💰", employees: "200-500", location: "London, UK",
-    jobs: [
-      { id: "j8", title: "Data Analyst", location: "London, UK", type: "Full-time", posted: "2d ago" },
-    ],
-  },
-  { id: "5", name: "GreenByte", industry: "CleanTech", logo: "🌱", employees: "50-200", location: "Austin, TX",
-    jobs: [
-      { id: "j9", title: "React Native Developer", location: "Remote", type: "Full-time", posted: "3d ago" },
-    ],
-  },
-];
 
 const CompaniesPage = () => {
   const { user } = useAuth();
-  const [followedNames, setFollowedNames] = useState<Set<string>>(new Set());
-  const [search, setSearch] = useState("");
-  const [showFollowedOnly, setShowFollowedOnly] = useState(false);
+  const [companies, setCompanies] = useState<FollowedCompany[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newName, setNewName] = useState("");
+  const [newIndustry, setNewIndustry] = useState("");
+  const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
+  const fetchCompanies = useCallback(async () => {
     if (!user) return;
-    supabase
+    setLoading(true);
+    const { data, error } = await supabase
       .from("followed_companies")
-      .select("company_name")
+      .select("id, company_name, company_industry, created_at")
       .eq("user_id", user.id)
-      .then(({ data }) => {
-        if (data) setFollowedNames(new Set(data.map((d) => d.company_name)));
-      });
+      .order("created_at", { ascending: false });
+
+    if (!error && data) setCompanies(data);
+    setLoading(false);
   }, [user]);
 
-  const toggleFollow = async (company: Company) => {
-    if (!user) return;
-    const isFollowed = followedNames.has(company.name);
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
 
-    if (isFollowed) {
-      await supabase.from("followed_companies").delete().eq("user_id", user.id).eq("company_name", company.name);
-      setFollowedNames((prev) => { const n = new Set(prev); n.delete(company.name); return n; });
-      toast.success(`Unfollowed ${company.name}`);
-    } else {
-      await supabase.from("followed_companies").insert({
-        user_id: user.id,
-        company_name: company.name,
-        company_industry: company.industry,
-        company_logo: company.logo,
-      });
-      setFollowedNames((prev) => new Set(prev).add(company.name));
-      toast.success(`Following ${company.name}`);
+  const handleAdd = async () => {
+    if (!user || !newName.trim()) return;
+    const trimmed = newName.trim();
+
+    if (companies.some((c) => c.company_name.toLowerCase() === trimmed.toLowerCase())) {
+      toast.error("Company already in your watchlist");
+      return;
     }
+
+    setAdding(true);
+    const { error } = await supabase.from("followed_companies").insert({
+      user_id: user.id,
+      company_name: trimmed,
+      company_industry: newIndustry.trim() || null,
+    });
+
+    if (error) {
+      toast.error("Failed to add company");
+    } else {
+      toast.success(`Added ${trimmed} to your watchlist`);
+      setNewName("");
+      setNewIndustry("");
+      fetchCompanies();
+    }
+    setAdding(false);
   };
 
-  const filtered = companiesData.filter((c) => {
-    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.industry.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch && (!showFollowedOnly || followedNames.has(c.name));
-  });
+  const handleRemove = async (company: FollowedCompany) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("followed_companies")
+      .delete()
+      .eq("id", company.id);
+
+    if (error) {
+      toast.error("Failed to remove company");
+    } else {
+      toast.success(`Removed ${company.company_name}`);
+      setCompanies((prev) => prev.filter((c) => c.id !== company.id));
+    }
+  };
 
   return (
     <div className="p-6 md:p-10">
       <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold tracking-tight">Companies</h1>
-        <p className="mt-1 text-muted-foreground">Follow companies and explore their latest openings.</p>
+        <h1 className="font-display text-3xl font-bold tracking-tight">My Watchlist</h1>
+        <p className="mt-1 text-muted-foreground">
+          Add companies you're interested in. Their job posts will appear in the Job Posts section.
+        </p>
       </div>
 
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search companies..." value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-xl pl-10" />
+      {/* Add Company Form */}
+      <div className="mb-8 rounded-2xl border bg-card p-6">
+        <h2 className="mb-4 font-display text-lg font-semibold flex items-center gap-2">
+          <Plus className="h-5 w-5 text-primary" /> Add a Company
+        </h2>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="companyName">Company Name *</Label>
+            <Input
+              id="companyName"
+              placeholder="e.g. Google, Stripe, Notion..."
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="rounded-xl"
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            />
+          </div>
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="industry">Industry (optional)</Label>
+            <Input
+              id="industry"
+              placeholder="e.g. FinTech, AI, SaaS..."
+              value={newIndustry}
+              onChange={(e) => setNewIndustry(e.target.value)}
+              className="rounded-xl"
+              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            />
+          </div>
+          <Button onClick={handleAdd} disabled={adding || !newName.trim()} className="gap-2 rounded-xl">
+            {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Add
+          </Button>
         </div>
-        <Button variant={showFollowedOnly ? "default" : "outline"} onClick={() => setShowFollowedOnly(!showFollowedOnly)} className="gap-2 rounded-xl">
-          <Heart className={`h-4 w-4 ${showFollowedOnly ? "fill-current" : ""}`} />
-          Following ({followedNames.size})
-        </Button>
       </div>
 
-      <div className="space-y-6">
-        {filtered.map((company) => {
-          const isFollowed = followedNames.has(company.name);
-          return (
-            <div key={company.id} className="rounded-2xl border bg-card overflow-hidden transition-all hover:shadow-md hover:shadow-primary/5">
-              <div className="flex items-center justify-between gap-4 border-b p-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-accent text-2xl">{company.logo}</div>
-                  <div>
-                    <h2 className="font-display text-xl font-semibold">{company.name}</h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {company.location}</span>
-                      <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {company.employees}</span>
-                      <Badge variant="secondary" className="rounded-md">{company.industry}</Badge>
-                    </div>
+      {/* Company List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : companies.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+          <Eye className="mb-4 h-12 w-12 text-muted-foreground/50" />
+          <p className="text-lg font-medium text-muted-foreground">No companies in your watchlist</p>
+          <p className="mt-1 text-sm text-muted-foreground">Add companies above to start tracking their job posts.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">
+            {companies.length} {companies.length === 1 ? "company" : "companies"} in your watchlist
+          </p>
+          {companies.map((company) => (
+            <div
+              key={company.id}
+              className="flex items-center justify-between gap-4 rounded-2xl border bg-card px-6 py-4 transition-all hover:shadow-md hover:shadow-primary/5"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent">
+                  <Building2 className="h-5 w-5 text-accent-foreground" />
+                </div>
+                <div>
+                  <p className="font-display font-semibold">{company.company_name}</p>
+                  <div className="mt-0.5 flex items-center gap-2">
+                    {company.company_industry && (
+                      <Badge variant="secondary" className="rounded-md text-xs">{company.company_industry}</Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      Added {new Date(company.created_at).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
-                <Button variant={isFollowed ? "default" : "outline"} size="sm" onClick={() => toggleFollow(company)} className="gap-2 rounded-xl">
-                  <Heart className={`h-4 w-4 ${isFollowed ? "fill-current" : ""}`} />
-                  {isFollowed ? "Following" : "Follow"}
-                </Button>
               </div>
-              <div className="divide-y">
-                {company.jobs.map((job) => (
-                  <div key={job.id} className="flex items-center justify-between gap-4 px-6 py-4 transition-colors hover:bg-secondary/30">
-                    <div>
-                      <p className="font-medium">{job.title}</p>
-                      <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                        <span>{job.location}</span><span>•</span><span>{job.type}</span><span>•</span><span>{job.posted}</span>
-                      </div>
-                    </div>
-                    <Button variant="ghost" size="sm" className="gap-1 text-primary">View <ExternalLink className="h-3.5 w-3.5" /></Button>
-                  </div>
-                ))}
-              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemove(company)}
+                className="gap-1.5 rounded-xl text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Remove
+              </Button>
             </div>
-          );
-        })}
-
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-            <Building2 className="mb-4 h-12 w-12 text-muted-foreground/50" />
-            <p className="text-lg font-medium text-muted-foreground">No companies found</p>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
