@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Briefcase, MapPin, Clock, ExternalLink, Building2, Loader2, RefreshCw } from "lucide-react";
+import { Briefcase, MapPin, ExternalLink, Building2, Loader2, RefreshCw, ChevronDown, ChevronRight, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -21,13 +22,23 @@ interface CompanyWithCareers {
   careers_url: string | null;
 }
 
+interface CompanyJobGroup {
+  company: string;
+  jobs: ExtractedJob[];
+  loading: boolean;
+  error: boolean;
+}
+
 const Jobs = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [companies, setCompanies] = useState<CompanyWithCareers[]>([]);
-  const [jobs, setJobs] = useState<ExtractedJob[]>([]);
+  const [groups, setGroups] = useState<CompanyJobGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
+  const [expandedCompanies, setExpandedCompanies] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
   const fetchCompanies = useCallback(async () => {
     if (!user) return;
@@ -49,41 +60,81 @@ const Jobs = () => {
     if (withCareers.length === 0) return;
 
     setFetching(true);
-    const allJobs: ExtractedJob[] = [];
+    const newGroups: CompanyJobGroup[] = withCareers.map((c) => ({
+      company: c.company_name,
+      jobs: [],
+      loading: true,
+      error: false,
+    }));
+    setGroups(newGroups);
+    // Expand all by default
+    setExpandedCompanies(new Set(withCareers.map((c) => c.company_name)));
 
-    for (const company of withCareers) {
-      try {
+    // Fetch in parallel
+    const results = await Promise.allSettled(
+      withCareers.map(async (company) => {
         const { data, error } = await supabase.functions.invoke("extract-jobs", {
           body: { careers_url: company.careers_url, company_name: company.company_name },
         });
+        if (error || !data?.success) throw new Error("Failed");
+        return { company: company.company_name, jobs: data.jobs || [] };
+      })
+    );
 
-        if (error) {
-          console.error(`Error fetching jobs for ${company.company_name}:`, error);
-          toast.error(`Failed to fetch jobs from ${company.company_name}`);
-          continue;
-        }
-
-        if (data?.success && data.jobs) {
-          allJobs.push(...data.jobs);
-        }
-      } catch (err) {
-        console.error(`Error for ${company.company_name}:`, err);
+    const finalGroups: CompanyJobGroup[] = withCareers.map((c, i) => {
+      const result = results[i];
+      if (result.status === "fulfilled") {
+        return { company: c.company_name, jobs: result.value.jobs, loading: false, error: false };
       }
-    }
+      return { company: c.company_name, jobs: [], loading: false, error: true };
+    });
 
-    setJobs(allJobs);
+    setGroups(finalGroups);
     setFetching(false);
-    if (allJobs.length > 0) {
-      toast.success(`Found ${allJobs.length} job${allJobs.length === 1 ? "" : "s"} from your watchlist`);
+
+    const totalJobs = finalGroups.reduce((s, g) => s + g.jobs.length, 0);
+    if (totalJobs > 0) {
+      toast.success(`Found ${totalJobs} job${totalJobs === 1 ? "" : "s"} across ${finalGroups.filter((g) => g.jobs.length > 0).length} companies`);
     }
   }, [companies]);
 
-  // Auto-fetch on first load when companies are available
   useEffect(() => {
-    if (companies.length > 0 && jobs.length === 0 && !fetching) {
+    if (companies.length > 0 && groups.length === 0 && !fetching) {
       fetchJobs();
     }
   }, [companies]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleCompany = (name: string) => {
+    setExpandedCompanies((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const expandAll = () => setExpandedCompanies(new Set(groups.map((g) => g.company)));
+  const collapseAll = () => setExpandedCompanies(new Set());
+
+  // Collect all departments
+  const allDepartments = Array.from(new Set(groups.flatMap((g) => g.jobs.map((j) => j.department).filter(Boolean)))).sort();
+
+  // Filter jobs
+  const filteredGroups = groups.map((group) => ({
+    ...group,
+    jobs: group.jobs.filter((job) => {
+      const matchesSearch =
+        !search ||
+        job.title.toLowerCase().includes(search.toLowerCase()) ||
+        job.location.toLowerCase().includes(search.toLowerCase()) ||
+        job.department.toLowerCase().includes(search.toLowerCase());
+      const matchesDept = !selectedDepartment || job.department === selectedDepartment;
+      return matchesSearch && matchesDept;
+    }),
+  }));
+
+  const totalFiltered = filteredGroups.reduce((s, g) => s + g.jobs.length, 0);
+  const totalAll = groups.reduce((s, g) => s + g.jobs.length, 0);
 
   if (loading) {
     return (
@@ -97,100 +148,209 @@ const Jobs = () => {
 
   return (
     <div className="p-6 md:p-10">
-      <div className="mb-8 flex items-start justify-between gap-4">
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Job Posts</h1>
           <p className="mt-1 text-muted-foreground">
-            {companiesWithCareers.length > 0
-              ? `Live openings scraped from ${companiesWithCareers.length} ${companiesWithCareers.length === 1 ? "company" : "companies"} in your watchlist.`
-              : "Add companies with careers page links to see their job openings here."}
+            {totalAll > 0
+              ? `${totalAll} openings from ${groups.filter((g) => g.jobs.length > 0).length} companies`
+              : "Add companies with careers page links to see their job openings."}
           </p>
         </div>
         {companiesWithCareers.length > 0 && (
-          <Button
-            variant="outline"
-            onClick={fetchJobs}
-            disabled={fetching}
-            className="gap-2 rounded-xl shrink-0"
-          >
+          <Button variant="outline" onClick={fetchJobs} disabled={fetching} className="gap-2 rounded-xl shrink-0">
             {fetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh
           </Button>
         )}
       </div>
 
+      {/* Empty states */}
       {companies.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-          <Building2 className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-lg font-medium text-muted-foreground">No companies in your watchlist</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add companies to your watchlist first, and their job posts will appear here.
-          </p>
-          <Button className="mt-4 gap-2 rounded-xl" onClick={() => navigate("/my-companies")}>
-            <Building2 className="h-4 w-4" /> Go to Watchlist
-          </Button>
-        </div>
+        <EmptyState
+          icon={Building2}
+          title="No companies in your watchlist"
+          description="Add companies to your watchlist first, and their job posts will appear here."
+          action={<Button className="mt-4 gap-2 rounded-xl" onClick={() => navigate("/my-companies")}><Building2 className="h-4 w-4" /> Go to Watchlist</Button>}
+        />
       ) : companiesWithCareers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-          <Briefcase className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-lg font-medium text-muted-foreground">No careers pages linked</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add a careers page URL to your watched companies so we can fetch their job listings.
-          </p>
-          <Button variant="outline" className="mt-4 gap-2 rounded-xl" onClick={() => navigate("/my-companies")}>
-            <Building2 className="h-4 w-4" /> Manage Watchlist
-          </Button>
-        </div>
-      ) : fetching ? (
+        <EmptyState
+          icon={Briefcase}
+          title="No careers pages linked"
+          description="Add a careers page URL to your watched companies so we can fetch their job listings."
+          action={<Button variant="outline" className="mt-4 gap-2 rounded-xl" onClick={() => navigate("/my-companies")}><Building2 className="h-4 w-4" /> Manage Watchlist</Button>}
+        />
+      ) : fetching && groups.every((g) => g.loading) ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Loader2 className="mb-4 h-10 w-10 animate-spin text-primary" />
           <p className="text-lg font-medium">Scanning careers pages...</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Extracting job listings from {companiesWithCareers.length} {companiesWithCareers.length === 1 ? "company" : "companies"}. This may take a moment.
+            Extracting jobs from {companiesWithCareers.length} {companiesWithCareers.length === 1 ? "company" : "companies"}.
           </p>
-        </div>
-      ) : jobs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
-          <Briefcase className="mb-4 h-12 w-12 text-muted-foreground/50" />
-          <p className="text-lg font-medium text-muted-foreground">No jobs found</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            We couldn't extract any job listings. Try refreshing or check the careers page URLs.
-          </p>
-          <Button variant="outline" className="mt-4 gap-2 rounded-xl" onClick={fetchJobs}>
-            <RefreshCw className="h-4 w-4" /> Try Again
-          </Button>
         </div>
       ) : (
-        <div className="space-y-4">
-          <p className="text-sm font-medium text-muted-foreground">
-            {jobs.length} {jobs.length === 1 ? "opening" : "openings"} found
-          </p>
-          {jobs.map((job, i) => (
-            <div key={`${job.company}-${job.title}-${i}`} className="flex items-center justify-between gap-4 rounded-2xl border bg-card p-6 transition-all hover:shadow-md hover:shadow-primary/5">
-              <div className="min-w-0 flex-1">
-                <h3 className="font-display text-lg font-semibold">{job.title}</h3>
-                <p className="text-sm text-muted-foreground">{job.company}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{job.location}</span>
-                  <span className="flex items-center gap-1"><Briefcase className="h-3.5 w-3.5" />{job.type}</span>
+        <>
+          {/* Search & Filters */}
+          {totalAll > 0 && (
+            <div className="mb-6 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search jobs by title, location, or department..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="rounded-xl pl-10"
+                  />
                 </div>
-                {job.department && (
-                  <div className="mt-2">
-                    <Badge variant="secondary" className="rounded-md">{job.department}</Badge>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={expandAll} className="text-xs text-muted-foreground">
+                    Expand All
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={collapseAll} className="text-xs text-muted-foreground">
+                    Collapse All
+                  </Button>
+                </div>
               </div>
-              <a href={job.apply_url} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" size="sm" className="shrink-0 gap-1 rounded-xl">
-                  Apply <ExternalLink className="h-3.5 w-3.5" />
-                </Button>
-              </a>
+
+              {/* Department chips */}
+              {allDepartments.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  <Badge
+                    variant={selectedDepartment === null ? "default" : "secondary"}
+                    className="cursor-pointer rounded-lg px-3 py-1"
+                    onClick={() => setSelectedDepartment(null)}
+                  >
+                    All ({totalAll})
+                  </Badge>
+                  {allDepartments.map((dept) => {
+                    const count = groups.reduce((s, g) => s + g.jobs.filter((j) => j.department === dept).length, 0);
+                    return (
+                      <Badge
+                        key={dept}
+                        variant={selectedDepartment === dept ? "default" : "secondary"}
+                        className="cursor-pointer rounded-lg px-3 py-1"
+                        onClick={() => setSelectedDepartment(selectedDepartment === dept ? null : dept)}
+                      >
+                        {dept} ({count})
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+
+              {search || selectedDepartment ? (
+                <p className="text-xs text-muted-foreground">
+                  Showing {totalFiltered} of {totalAll} jobs
+                </p>
+              ) : null}
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Company Groups */}
+          <div className="space-y-4">
+            {filteredGroups.map((group) => {
+              const isExpanded = expandedCompanies.has(group.company);
+              if (group.jobs.length === 0 && !group.loading && !group.error && (search || selectedDepartment)) return null;
+
+              return (
+                <div key={group.company} className="rounded-2xl border bg-card overflow-hidden">
+                  {/* Company Header */}
+                  <button
+                    onClick={() => toggleCompany(group.company)}
+                    className="flex w-full items-center justify-between gap-4 p-5 text-left transition-colors hover:bg-secondary/30"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
+                        <Building2 className="h-5 w-5 text-accent-foreground" />
+                      </div>
+                      <div>
+                        <h2 className="font-display text-lg font-semibold">{group.company}</h2>
+                        <p className="text-sm text-muted-foreground">
+                          {group.loading
+                            ? "Scanning..."
+                            : group.error
+                            ? "Failed to load"
+                            : `${group.jobs.length} ${group.jobs.length === 1 ? "opening" : "openings"}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!group.loading && group.jobs.length > 0 && (
+                        <Badge variant="secondary" className="rounded-lg">{group.jobs.length}</Badge>
+                      )}
+                      {group.loading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      ) : isExpanded ? (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Jobs List */}
+                  {isExpanded && !group.loading && (
+                    <div className="border-t divide-y">
+                      {group.jobs.length === 0 ? (
+                        <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+                          {group.error ? "Could not load jobs. Check the careers URL and try again." : "No openings found."}
+                        </div>
+                      ) : (
+                        group.jobs.map((job, i) => (
+                          <div key={`${job.title}-${i}`} className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-secondary/20">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium">{job.title}</p>
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5 shrink-0" />{job.location}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Briefcase className="h-3.5 w-3.5 shrink-0" />{job.type}
+                                </span>
+                                {job.department && (
+                                  <Badge variant="outline" className="rounded-md text-xs font-normal">{job.department}</Badge>
+                                )}
+                              </div>
+                            </div>
+                            <a href={job.apply_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                              <Button variant="ghost" size="sm" className="gap-1 text-primary rounded-xl">
+                                Apply <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            </a>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
 };
+
+const EmptyState = ({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  action: React.ReactNode;
+}) => (
+  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
+    <Icon className="mb-4 h-12 w-12 text-muted-foreground/50" />
+    <p className="text-lg font-medium text-muted-foreground">{title}</p>
+    <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    {action}
+  </div>
+);
 
 export default Jobs;
