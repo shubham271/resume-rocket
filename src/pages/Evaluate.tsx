@@ -1,6 +1,7 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   FileText, Upload, Sparkles, CheckCircle2, AlertTriangle,
   Lightbulb, MessageSquare, Target,
-  TrendingUp, X, FileUp, Zap, Shield, Brain, ArrowRight
+  TrendingUp, X, FileUp, Zap, Shield, Brain, ArrowRight,
+  Clock, ChevronDown, ChevronUp, Trash2
 } from "lucide-react";
 import ScoreRing from "@/components/ScoreRing";
 import { toast } from "sonner";
@@ -124,9 +126,37 @@ const Evaluate = () => {
   const [steps, setSteps] = useState<AnalysisStep[]>([]);
   const [resumeDragActive, setResumeDragActive] = useState(false);
   const [jdDragActive, setJdDragActive] = useState(false);
-
+  const [history, setHistory] = useState<Tables<"resume_analyses">[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const jdInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchHistory = useCallback(async () => {
+    if (!user) return;
+    setLoadingHistory(true);
+    const { data, error } = await supabase
+      .from("resume_analyses")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    if (!error && data) setHistory(data);
+    setLoadingHistory(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const deleteAnalysis = async (id: string) => {
+    const { error } = await supabase.from("resume_analyses").delete().eq("id", id);
+    if (error) {
+      toast.error("Failed to delete analysis");
+    } else {
+      setHistory(prev => prev.filter(h => h.id !== id));
+      toast.success("Analysis deleted");
+    }
+  };
 
   const handleResumeDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -210,7 +240,10 @@ const Evaluate = () => {
         suggestions: analysis.suggestions,
       });
       if (error) toast.error("Failed to save analysis");
-      else toast.success("Analysis saved to your dashboard!");
+      else {
+        toast.success("Analysis saved!");
+        fetchHistory();
+      }
     }
   };
 
@@ -630,6 +663,174 @@ const Evaluate = () => {
                 ))}
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Previous Evaluations History */}
+        {user && (
+          <div className="mt-16 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-display text-2xl font-bold tracking-tight">Previous Evaluations</h2>
+                <p className="text-sm text-muted-foreground">View your past analyses, scores, and detailed breakdowns</p>
+              </div>
+              <Badge variant="secondary" className="ml-auto font-mono">{history.length}</Badge>
+            </div>
+
+            {loadingHistory ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map(i => (
+                  <Card key={i} className="border-border/60 animate-pulse">
+                    <CardContent className="p-6">
+                      <div className="h-4 w-24 rounded bg-muted mb-4" />
+                      <div className="h-8 w-16 rounded bg-muted mb-3" />
+                      <div className="h-3 w-full rounded bg-muted" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : history.length === 0 ? (
+              <Card className="border-2 border-dashed border-border/60">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted mb-4">
+                    <FileText className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">No evaluations yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Run your first analysis above to see it here</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {history.map((item) => {
+                  const isExpanded = expandedId === item.id;
+                  const scoreColor = item.score >= 70 ? "text-[hsl(var(--success))]" : item.score >= 40 ? "text-[hsl(var(--warning))]" : "text-destructive";
+                  const scoreBg = item.score >= 70 ? "bg-[hsl(var(--success))]/10" : item.score >= 40 ? "bg-[hsl(var(--warning))]/10" : "bg-destructive/10";
+
+                  return (
+                    <Card key={item.id} className="border-2 border-border/60 shadow-sm transition-all hover:shadow-md">
+                      <CardContent className="p-0">
+                        {/* Summary Row */}
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                          className="flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-muted/30"
+                        >
+                          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl ${scoreBg}`}>
+                            <span className={`font-display text-xl font-bold ${scoreColor}`}>{item.score}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold truncate">
+                                {item.job_title || "Untitled Analysis"}
+                              </p>
+                              {item.company_name && (
+                                <Badge variant="outline" className="text-xs shrink-0">{item.company_name}</Badge>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {new Date(item.created_at).toLocaleDateString("en-US", {
+                                year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+                              })}
+                            </p>
+                            <div className="mt-2 flex items-center gap-3">
+                              {item.matched_skills && item.matched_skills.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  <span className="font-medium text-[hsl(var(--success))]">{item.matched_skills.length}</span> matched
+                                </span>
+                              )}
+                              {item.missing_skills && item.missing_skills.length > 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  <span className="font-medium text-destructive">{item.missing_skills.length}</span> missing
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); deleteAnalysis(item.id); }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                          </div>
+                        </button>
+
+                        {/* Expanded Details */}
+                        {isExpanded && (
+                          <div className="border-t border-border/60 p-5 space-y-5 animate-in fade-in slide-in-from-top-2 duration-300">
+                            {/* Score display */}
+                            <div className="flex items-center gap-6">
+                              <ScoreRing score={item.score} size={100} strokeWidth={10} />
+                              <div>
+                                <p className="text-lg font-bold">ATS Score: {item.score}/100</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {item.score >= 70 ? "Strong match — your resume aligns well with the role." : 
+                                   item.score >= 40 ? "Moderate match — some improvements would help." : 
+                                   "Needs work — significant gaps detected."}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Matched Skills */}
+                            {item.matched_skills && item.matched_skills.length > 0 && (
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
+                                  <h4 className="text-sm font-semibold">Matched Skills</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {item.matched_skills.map(s => (
+                                    <span key={s} className="rounded-lg bg-[hsl(var(--success))]/10 px-3 py-1.5 text-xs font-medium text-[hsl(var(--success))]">{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Missing Skills */}
+                            {item.missing_skills && item.missing_skills.length > 0 && (
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                                  <h4 className="text-sm font-semibold">Missing Skills</h4>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {item.missing_skills.map(s => (
+                                    <span key={s} className="rounded-lg bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive">{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Suggestions */}
+                            {item.suggestions && item.suggestions.length > 0 && (
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Lightbulb className="h-4 w-4 text-[hsl(var(--warning))]" />
+                                  <h4 className="text-sm font-semibold">Suggestions</h4>
+                                </div>
+                                <div className="space-y-2">
+                                  {item.suggestions.map((s, i) => (
+                                    <div key={i} className="flex gap-3 rounded-lg bg-muted/30 p-3">
+                                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">{i + 1}</span>
+                                      <p className="text-sm leading-relaxed text-muted-foreground">{s}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
