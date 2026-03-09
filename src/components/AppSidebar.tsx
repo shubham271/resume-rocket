@@ -8,6 +8,7 @@ import { useState } from "react";
 
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
   const navItems = [
