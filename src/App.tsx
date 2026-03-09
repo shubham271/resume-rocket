@@ -15,6 +15,7 @@ import Jobs from "./pages/Jobs";
 import CompaniesAuth from "./pages/CompaniesAuth";
 import Analyzer from "./pages/Analyzer";
 import Companies from "./pages/Companies";
+import Account from "./pages/Account";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
