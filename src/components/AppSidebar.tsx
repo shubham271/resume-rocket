@@ -14,7 +14,7 @@ const AppSidebar = () => {
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/evaluate", label: "Evaluate", icon: FileText },
     { to: "/jobs", label: "Job Posts", icon: Briefcase },
-    { to: "/companies", label: "Companies", icon: Building2 },
+    { to: "/my-companies", label: "Companies", icon: Building2 },
   ];
 
   return (
