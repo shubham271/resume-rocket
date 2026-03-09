@@ -16,26 +16,32 @@ export type Database = {
     Tables: {
       followed_companies: {
         Row: {
+          careers_url: string | null
           company_industry: string | null
           company_logo: string | null
           company_name: string
           created_at: string
+          homepage_url: string | null
           id: string
           user_id: string
         }
         Insert: {
+          careers_url?: string | null
           company_industry?: string | null
           company_logo?: string | null
           company_name: string
           created_at?: string
+          homepage_url?: string | null
           id?: string
           user_id: string
         }
         Update: {
+          careers_url?: string | null
           company_industry?: string | null
           company_logo?: string | null
           company_name?: string
           created_at?: string
+          homepage_url?: string | null
           id?: string
           user_id?: string
         }
