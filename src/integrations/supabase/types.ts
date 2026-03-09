@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      cached_jobs: {
+        Row: {
+          company_name: string
+          fetched_at: string
+          id: string
+          jobs: Json
+          user_id: string
+        }
+        Insert: {
+          company_name: string
+          fetched_at?: string
+          id?: string
+          jobs?: Json
+          user_id: string
+        }
+        Update: {
+          company_name?: string
+          fetched_at?: string
+          id?: string
+          jobs?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       followed_companies: {
         Row: {
           careers_url: string | null
