@@ -1,4 +1,4 @@
-import { NavLink as RouterNavLink } from "react-router-dom";
+import { NavLink as RouterNavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
