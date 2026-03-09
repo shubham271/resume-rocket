@@ -11,7 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   FileText, Upload, Sparkles, CheckCircle2, AlertTriangle,
   Lightbulb, MessageSquare, Target,
-  TrendingUp, X, FileUp, Zap, Shield, Brain, ArrowRight
+  TrendingUp, X, FileUp, Zap, Shield, Brain, ArrowRight,
+  Clock, ChevronDown, ChevronUp, Trash2
 } from "lucide-react";
 import ScoreRing from "@/components/ScoreRing";
 import { toast } from "sonner";
