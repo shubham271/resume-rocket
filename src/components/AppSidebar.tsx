@@ -1,7 +1,7 @@
 import { NavLink as RouterNavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles, Settings,
+  LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
