@@ -126,7 +126,9 @@ const Evaluate = () => {
   const [steps, setSteps] = useState<AnalysisStep[]>([]);
   const [resumeDragActive, setResumeDragActive] = useState(false);
   const [jdDragActive, setJdDragActive] = useState(false);
-
+  const [history, setHistory] = useState<Tables<"resume_analyses">[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const resumeInputRef = useRef<HTMLInputElement>(null);
   const jdInputRef = useRef<HTMLInputElement>(null);
 
