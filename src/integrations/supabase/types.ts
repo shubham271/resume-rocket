@@ -38,6 +38,51 @@ export type Database = {
         }
         Relationships: []
       }
+      cover_letters: {
+        Row: {
+          company_name: string | null
+          content: string | null
+          created_at: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          is_generated: boolean
+          job_title: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          company_name?: string | null
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          is_generated?: boolean
+          job_title?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          company_name?: string | null
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          is_generated?: boolean
+          job_title?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
       followed_companies: {
         Row: {
           careers_url: string | null
@@ -134,6 +179,45 @@ export type Database = {
           score?: number
           suggestions?: string[] | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      resumes: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          is_generated: boolean
+          resume_data: Json | null
+          title: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          is_generated?: boolean
+          resume_data?: Json | null
+          title: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          is_generated?: boolean
+          resume_data?: Json | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
         }
         Relationships: []
       }
