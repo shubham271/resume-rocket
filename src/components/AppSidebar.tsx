@@ -1,7 +1,8 @@
-import { NavLink as RouterNavLink, useNavigate } from "react-router-dom";
+import { NavLink as RouterNavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
+  ChevronDown, FileUp, PenTool, FolderOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -9,7 +10,12 @@ import { useState } from "react";
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+
+  const docPaths = ["/resumes", "/cover-letters", "/resume-builder"];
+  const isDocActive = docPaths.some((p) => location.pathname.startsWith(p));
+  const [docsOpen, setDocsOpen] = useState(isDocActive);
 
   const navItems = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -17,6 +23,19 @@ const AppSidebar = () => {
     { to: "/jobs", label: "Job Posts", icon: Briefcase },
     { to: "/my-companies", label: "Companies", icon: Building2 },
   ];
+
+  const docItems = [
+    { to: "/resumes", label: "My Resumes", icon: FileUp },
+    { to: "/cover-letters", label: "Cover Letters", icon: PenTool },
+    { to: "/resume-builder", label: "Resume Builder", icon: Sparkles },
+  ];
+
+  const navLinkClass = (isActive: boolean) =>
+    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+      isActive
+        ? "bg-accent text-accent-foreground"
+        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+    }`;
 
   return (
     <aside
@@ -33,23 +52,67 @@ const AppSidebar = () => {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map(({ to, label, icon: Icon }) => (
           <RouterNavLink
             key={to}
             to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-accent text-accent-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`
-            }
+            className={({ isActive }) => navLinkClass(isActive)}
           >
             <Icon className="h-5 w-5 shrink-0" />
             {!collapsed && <span>{label}</span>}
           </RouterNavLink>
         ))}
+
+        {/* Documents Group */}
+        {!collapsed ? (
+          <div className="pt-2">
+            <button
+              onClick={() => setDocsOpen(!docsOpen)}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                isDocActive
+                  ? "text-accent-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+            >
+              <FolderOpen className="h-5 w-5 shrink-0" />
+              <span className="flex-1 text-left">Documents</span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform ${docsOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {docsOpen && (
+              <div className="ml-4 mt-1 space-y-0.5 border-l pl-3">
+                {docItems.map(({ to, label, icon: Icon }) => (
+                  <RouterNavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        isActive
+                          ? "bg-accent text-accent-foreground font-medium"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      }`
+                    }
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span>{label}</span>
+                  </RouterNavLink>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          docItems.map(({ to, icon: Icon }) => (
+            <RouterNavLink
+              key={to}
+              to={to}
+              className={({ isActive }) => navLinkClass(isActive)}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+            </RouterNavLink>
+          ))
+        )}
       </nav>
 
       {/* User + Collapse */}

@@ -16,6 +16,9 @@ import CompaniesAuth from "./pages/CompaniesAuth";
 import Analyzer from "./pages/Analyzer";
 import Companies from "./pages/Companies";
 import Account from "./pages/Account";
+import Resumes from "./pages/Resumes";
+import CoverLetters from "./pages/CoverLetters";
+import ResumeBuilder from "./pages/ResumeBuilder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
