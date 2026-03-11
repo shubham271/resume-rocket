@@ -26,6 +26,9 @@ import Admin from "./pages/Admin";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminUserDetail from "./pages/admin/AdminUserDetail";
+import AdminAuditLogs from "./pages/admin/AdminAuditLogs";
+import AdminSafety from "./pages/admin/AdminSafety";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,12 +58,18 @@ const AdminRoutes = () => {
       <Route element={<AdminLayout />}>
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/users" element={<Admin />} />
+        <Route path="/admin/users/:userId" element={<AdminUserDetail />} />
         <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/safety" element={<AdminSafety />} />
+        <Route path="/admin/audit-logs" element={<AdminAuditLogs />} />
         <Route path="/admin/notifications" element={<AdminNotifications />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/" element={<Admin />} />
         <Route path="/users" element={<Admin />} />
+        <Route path="/users/:userId" element={<AdminUserDetail />} />
         <Route path="/analytics" element={<AdminAnalytics />} />
+        <Route path="/safety" element={<AdminSafety />} />
+        <Route path="/audit-logs" element={<AdminAuditLogs />} />
         <Route path="/notifications" element={<AdminNotifications />} />
         <Route path="/settings" element={<AdminSettings />} />
       </Route>
