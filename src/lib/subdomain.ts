@@ -8,10 +8,12 @@ export const isAdminSubdomain = (): boolean => {
   // Check for admin subdomain patterns
   if (hostname.startsWith("admin.")) return true;
   
-  // For local development, check URL param fallback
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return new URLSearchParams(window.location.search).has("admin");
-  }
+  // For development/preview, check URL param or path fallback
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("admin")) return true;
+
+  // Check if path starts with /admin
+  if (window.location.pathname.startsWith("/admin")) return true;
   
   return false;
 };
