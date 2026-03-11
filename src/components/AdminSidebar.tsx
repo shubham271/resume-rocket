@@ -2,7 +2,7 @@ import { NavLink as RouterNavLink, useNavigate, useLocation } from "react-router
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Shield, Users, LogOut, ChevronLeft, ChevronRight, LayoutDashboard,
-  Settings, BarChart3, Bell,
+  Settings, BarChart3, Bell, ScrollText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";

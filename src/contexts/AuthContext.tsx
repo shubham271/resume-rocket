@@ -23,9 +23,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const logLogin = async (userId: string) => {
+      try {
+        await supabase.from("user_login_logs").insert({
+          user_id: userId,
+          ip_address: "client",
+          user_agent: navigator.userAgent,
+        });
+      } catch (e) {
+        console.error("Failed to log login:", e);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setLoading(false);
+      if (event === "SIGNED_IN" && session?.user) {
+        logLogin(session.user.id);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
