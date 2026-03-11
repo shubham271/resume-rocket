@@ -54,7 +54,7 @@ const AdminSidebar = () => {
           <RouterNavLink
             key={to}
             to={to}
-            end={to === "/"}
+            end={to === "/admin"}
             className={({ isActive }) => navLinkClass(isActive)}
           >
             <Icon className="h-5 w-5 shrink-0" />
