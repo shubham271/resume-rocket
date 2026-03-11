@@ -2,9 +2,8 @@ import { NavLink as RouterNavLink, useNavigate, useLocation } from "react-router
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
-  ChevronDown, FileUp, PenTool, Wrench, UserCircle, Shield,
+  ChevronDown, FileUp, PenTool, Wrench, UserCircle,
 } from "lucide-react";
-import { useAdminRole } from "@/hooks/useAdminRole";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
