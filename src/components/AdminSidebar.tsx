@@ -16,6 +16,8 @@ const AdminSidebar = () => {
     { to: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { to: "/admin/users", label: "Users", icon: Users },
     { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    { to: "/admin/safety", label: "Safety", icon: Shield },
+    { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText },
     { to: "/admin/notifications", label: "Notifications", icon: Bell },
     { to: "/admin/settings", label: "Settings", icon: Settings },
   ];
