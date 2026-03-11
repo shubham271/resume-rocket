@@ -53,13 +53,18 @@ const AdminRoutes = () => {
   return (
     <Routes>
       <Route element={<AdminLayout />}>
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/users" element={<Admin />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
+        <Route path="/admin/notifications" element={<AdminNotifications />} />
+        <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/" element={<Admin />} />
         <Route path="/users" element={<Admin />} />
         <Route path="/analytics" element={<AdminAnalytics />} />
         <Route path="/notifications" element={<AdminNotifications />} />
         <Route path="/settings" element={<AdminSettings />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );
 };
