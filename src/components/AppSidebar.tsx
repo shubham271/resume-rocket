@@ -10,6 +10,7 @@ import { useState } from "react";
 
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdminRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
