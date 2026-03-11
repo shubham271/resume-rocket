@@ -116,6 +116,18 @@ const AppSidebar = () => {
             </RouterNavLink>
           ))
         )}
+        {/* Admin Link */}
+        {isAdmin && (
+          <div className="pt-2 border-t mt-2">
+            <RouterNavLink
+              to="/admin"
+              className={({ isActive }) => navLinkClass(isActive)}
+            >
+              <Shield className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>Admin Panel</span>}
+            </RouterNavLink>
+          </div>
+        )}
       </nav>
 
       {/* User + Collapse */}
