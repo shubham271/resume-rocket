@@ -19,6 +19,7 @@ import Account from "./pages/Account";
 import Resumes from "./pages/Resumes";
 import CoverLetters from "./pages/CoverLetters";
 import ResumeBuilder from "./pages/ResumeBuilder";
+import CareerProfiles from "./pages/CareerProfiles";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const AppRoutes = () => {
         <Route path="/evaluate" element={<Evaluate />} />
         <Route path="/jobs" element={<Jobs />} />
         <Route path="/my-companies" element={<CompaniesAuth />} />
+        <Route path="/career-profiles" element={<CareerProfiles />} />
         <Route path="/resumes" element={<Resumes />} />
         <Route path="/cover-letters" element={<CoverLetters />} />
         <Route path="/resume-builder" element={<ResumeBuilder />} />

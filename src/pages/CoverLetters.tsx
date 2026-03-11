@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useCareerProfiles } from "@/hooks/useCareerProfiles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  FileText, Upload, Trash2, Loader2, Download, Clock, Sparkles, Eye,
+  FileText, Upload, Trash2, Loader2, Download, Clock, Sparkles, Eye, UserCircle, LayoutTemplate,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -22,12 +24,21 @@ interface CoverLetter {
   content: string | null;
   job_title: string | null;
   company_name: string | null;
+  profile_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
+const CL_TEMPLATES = [
+  { id: "standard", label: "Standard", description: "Traditional cover letter format" },
+  { id: "storytelling", label: "Storytelling", description: "Narrative-driven, engaging tone" },
+  { id: "direct", label: "Direct", description: "Straight to the point, results-focused" },
+  { id: "creative", label: "Creative", description: "Unique voice, ideal for design/marketing roles" },
+];
+
 const CoverLettersPage = () => {
   const { user } = useAuth();
+  const { profiles } = useCareerProfiles();
   const [letters, setLetters] = useState<CoverLetter[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -36,8 +47,12 @@ const CoverLettersPage = () => {
   const [genJobTitle, setGenJobTitle] = useState("");
   const [genCompany, setGenCompany] = useState("");
   const [genJobDesc, setGenJobDesc] = useState("");
+  const [genTemplate, setGenTemplate] = useState("standard");
+  const [genProfileId, setGenProfileId] = useState<string>("none");
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [showGenForm, setShowGenForm] = useState(false);
+  const [filterProfileId, setFilterProfileId] = useState<string>("all");
+  const [uploadProfileId, setUploadProfileId] = useState<string>("none");
 
   const fetchLetters = useCallback(async () => {
     if (!user) return;
@@ -56,10 +71,7 @@ const CoverLettersPage = () => {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    if (!title.trim()) {
-      toast.error("Please enter a title");
-      return;
-    }
+    if (!title.trim()) { toast.error("Please enter a title"); return; }
 
     setUploading(true);
     const ext = file.name.split(".").pop();
@@ -74,9 +86,11 @@ const CoverLettersPage = () => {
     const { error } = await supabase.from("cover_letters").insert({
       user_id: user.id, title: title.trim(), version: nextVersion,
       file_url: path, file_name: file.name, is_generated: false,
+      profile_id: uploadProfileId === "none" ? null : uploadProfileId,
     } as any);
 
-    if (error) toast.error("Failed to save"); else { toast.success("Cover letter uploaded"); setTitle(""); fetchLetters(); }
+    if (error) toast.error("Failed to save");
+    else { toast.success("Cover letter uploaded"); setTitle(""); fetchLetters(); }
     setUploading(false);
     e.target.value = "";
   };
@@ -87,7 +101,12 @@ const CoverLettersPage = () => {
 
     try {
       const resp = await supabase.functions.invoke("generate-cover-letter", {
-        body: { jobTitle: genJobTitle.trim(), company: genCompany.trim(), jobDescription: genJobDesc.trim() },
+        body: {
+          jobTitle: genJobTitle.trim(),
+          company: genCompany.trim(),
+          jobDescription: genJobDesc.trim(),
+          template: genTemplate,
+        },
       });
 
       if (resp.error) throw resp.error;
@@ -102,6 +121,7 @@ const CoverLettersPage = () => {
         user_id: user.id, title: clTitle, version: nextVersion,
         content, job_title: genJobTitle.trim(), company_name: genCompany.trim(),
         is_generated: true,
+        profile_id: genProfileId === "none" ? null : genProfileId,
       } as any);
 
       if (error) throw error;
@@ -117,9 +137,8 @@ const CoverLettersPage = () => {
   const handleDelete = async (letter: CoverLetter) => {
     if (letter.file_url) await supabase.storage.from("documents").remove([letter.file_url]);
     const { error } = await supabase.from("cover_letters").delete().eq("id", letter.id);
-    if (error) toast.error("Failed to delete"); else {
-      toast.success("Deleted"); setLetters((prev) => prev.filter((l) => l.id !== letter.id));
-    }
+    if (error) toast.error("Failed to delete");
+    else { toast.success("Deleted"); setLetters((prev) => prev.filter((l) => l.id !== letter.id)); }
   };
 
   const handleDownload = async (letter: CoverLetter) => {
@@ -127,6 +146,18 @@ const CoverLettersPage = () => {
     const { data } = await supabase.storage.from("documents").createSignedUrl(letter.file_url, 60);
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
+
+  const getProfileLabel = (profileId: string | null) => {
+    if (!profileId) return null;
+    const p = profiles.find((p) => p.id === profileId);
+    return p ? `${p.profile_name} — ${p.target_role}` : null;
+  };
+
+  const filtered = filterProfileId === "all"
+    ? letters
+    : filterProfileId === "none"
+    ? letters.filter((l) => !l.profile_id)
+    : letters.filter((l) => l.profile_id === filterProfileId);
 
   return (
     <div className="p-6 md:p-10">
@@ -140,10 +171,24 @@ const CoverLettersPage = () => {
         <h2 className="mb-4 font-display text-lg font-semibold flex items-center gap-2">
           <Upload className="h-5 w-5 text-primary" /> Upload Cover Letter
         </h2>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-2">
-            <Label>Title</Label>
-            <Input placeholder="e.g. Google SWE Cover Letter" value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl" />
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Title</Label>
+              <Input placeholder="e.g. Google SWE Cover Letter" value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label>Career Profile (optional)</Label>
+              <Select value={uploadProfileId} onValueChange={setUploadProfileId}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="No profile" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No profile</SelectItem>
+                  {profiles.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.profile_name} — {p.target_role}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div>
             <input type="file" id="clFile" accept=".pdf,.doc,.docx" className="hidden" onChange={handleUpload} disabled={uploading || !title.trim()} />
@@ -179,9 +224,37 @@ const CoverLettersPage = () => {
                 <Input placeholder="e.g. Google" value={genCompany} onChange={(e) => setGenCompany(e.target.value)} className="rounded-xl" />
               </div>
             </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><LayoutTemplate className="h-3.5 w-3.5" /> Template</Label>
+                <Select value={genTemplate} onValueChange={setGenTemplate}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CL_TEMPLATES.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <span className="font-medium">{t.label}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">— {t.description}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Career Profile (optional)</Label>
+                <Select value={genProfileId} onValueChange={setGenProfileId}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="No profile" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No profile</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.profile_name} — {p.target_role}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Job Description (optional)</Label>
-              <Textarea placeholder="Paste the job description here for a more tailored cover letter..." value={genJobDesc} onChange={(e) => setGenJobDesc(e.target.value)} className="min-h-[100px] rounded-xl" />
+              <Textarea placeholder="Paste the job description here for a more tailored letter..." value={genJobDesc} onChange={(e) => setGenJobDesc(e.target.value)} className="min-h-[100px] rounded-xl" />
             </div>
             <Button onClick={handleGenerate} disabled={generating || !genJobTitle.trim() || !genCompany.trim()} className="gap-2 rounded-xl">
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -191,10 +264,27 @@ const CoverLettersPage = () => {
         )}
       </div>
 
+      {/* Filter by profile */}
+      {profiles.length > 0 && (
+        <div className="mb-6 flex items-center gap-3">
+          <UserCircle className="h-4 w-4 text-muted-foreground" />
+          <Select value={filterProfileId} onValueChange={setFilterProfileId}>
+            <SelectTrigger className="w-[250px] rounded-xl"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Profiles</SelectItem>
+              <SelectItem value="none">Unassigned</SelectItem>
+              {profiles.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.profile_name} — {p.target_role}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      ) : letters.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed py-16 text-center">
           <FileText className="mb-4 h-12 w-12 text-muted-foreground/50" />
           <p className="text-lg font-medium text-muted-foreground">No cover letters yet</p>
@@ -202,7 +292,7 @@ const CoverLettersPage = () => {
         </div>
       ) : (
         <div className="space-y-3">
-          {letters.map((letter) => (
+          {filtered.map((letter) => (
             <div key={letter.id} className="rounded-2xl border bg-card px-6 py-4 transition-all hover:shadow-md hover:shadow-primary/5">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 min-w-0">
@@ -214,6 +304,9 @@ const CoverLettersPage = () => {
                     <div className="mt-0.5 flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="rounded-md text-xs">v{letter.version}</Badge>
                       {letter.is_generated && <Badge variant="outline" className="rounded-md text-xs">AI Generated</Badge>}
+                      {letter.profile_id && (
+                        <Badge variant="outline" className="rounded-md text-xs">{getProfileLabel(letter.profile_id)}</Badge>
+                      )}
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatDistanceToNow(new Date(letter.updated_at), { addSuffix: true })}

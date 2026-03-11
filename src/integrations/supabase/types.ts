@@ -38,6 +38,36 @@ export type Database = {
         }
         Relationships: []
       }
+      career_profiles: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          profile_name: string
+          target_role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          profile_name: string
+          target_role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          profile_name?: string
+          target_role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cover_letters: {
         Row: {
           company_name: string | null
@@ -48,6 +78,7 @@ export type Database = {
           id: string
           is_generated: boolean
           job_title: string | null
+          profile_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -62,6 +93,7 @@ export type Database = {
           id?: string
           is_generated?: boolean
           job_title?: string | null
+          profile_id?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -76,12 +108,21 @@ export type Database = {
           id?: string
           is_generated?: boolean
           job_title?: string | null
+          profile_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cover_letters_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       followed_companies: {
         Row: {
@@ -189,6 +230,7 @@ export type Database = {
           file_url: string | null
           id: string
           is_generated: boolean
+          profile_id: string | null
           resume_data: Json | null
           title: string
           updated_at: string
@@ -201,6 +243,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_generated?: boolean
+          profile_id?: string | null
           resume_data?: Json | null
           title: string
           updated_at?: string
@@ -213,13 +256,22 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_generated?: boolean
+          profile_id?: string | null
           resume_data?: Json | null
           title?: string
           updated_at?: string
           user_id?: string
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "resumes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "career_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
