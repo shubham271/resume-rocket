@@ -21,6 +21,7 @@ interface AdminUser {
 
 const Admin = () => {
   const { isAdmin, loading: roleLoading } = useAdminRole();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
