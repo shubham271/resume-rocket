@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          details: Json | null
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
+      blocked_accounts: {
+        Row: {
+          blocked_at: string
+          blocked_by: string
+          description: string | null
+          id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by: string
+          description?: string | null
+          id?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by?: string
+          description?: string | null
+          id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      blocked_domains: {
+        Row: {
+          blocked_by: string
+          created_at: string
+          domain: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_by: string
+          created_at?: string
+          domain: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_by?: string
+          created_at?: string
+          domain?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
       cached_jobs: {
         Row: {
           company_name: string
@@ -273,6 +351,33 @@ export type Database = {
           },
         ]
       }
+      user_login_logs: {
+        Row: {
+          id: string
+          ip_address: string | null
+          location: string | null
+          login_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          login_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          ip_address?: string | null
+          location?: string | null
+          login_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -296,6 +401,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_get_platform_stats: { Args: never; Returns: Json }
+      admin_get_user_detail: {
+        Args: { _target_user_id: string }
+        Returns: Json
+      }
       admin_list_users: {
         Args: never
         Returns: {
