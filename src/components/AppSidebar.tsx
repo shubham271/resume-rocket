@@ -2,13 +2,15 @@ import { NavLink as RouterNavLink, useNavigate, useLocation } from "react-router
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
-  ChevronDown, FileUp, PenTool, Wrench, UserCircle,
+  ChevronDown, FileUp, PenTool, Wrench, UserCircle, Shield,
 } from "lucide-react";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 const AppSidebar = () => {
   const { user, signOut } = useAuth();
+  const { isAdmin } = useAdminRole();
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -113,6 +115,18 @@ const AppSidebar = () => {
               <Icon className="h-5 w-5 shrink-0" />
             </RouterNavLink>
           ))
+        )}
+        {/* Admin Link */}
+        {isAdmin && (
+          <div className="pt-2 border-t mt-2">
+            <RouterNavLink
+              to="/admin"
+              className={({ isActive }) => navLinkClass(isActive)}
+            >
+              <Shield className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>Admin Panel</span>}
+            </RouterNavLink>
+          </div>
         )}
       </nav>
 
