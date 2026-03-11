@@ -55,6 +55,7 @@ const AppRoutes = () => {
         <Route path="/cover-letters" element={<CoverLetters />} />
         <Route path="/resume-builder" element={<ResumeBuilder />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/admin" element={<Admin />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
