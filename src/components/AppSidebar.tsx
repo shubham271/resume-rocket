@@ -2,7 +2,7 @@ import { NavLink as RouterNavLink, useNavigate, useLocation } from "react-router
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, FileText, Building2, Briefcase, LogOut, User, ChevronLeft, ChevronRight, Sparkles,
-  ChevronDown, FileUp, PenTool, FolderOpen,
+  ChevronDown, FileUp, PenTool, Wrench, UserCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -13,9 +13,9 @@ const AppSidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
-  const docPaths = ["/resumes", "/cover-letters", "/resume-builder"];
-  const isDocActive = docPaths.some((p) => location.pathname.startsWith(p));
-  const [docsOpen, setDocsOpen] = useState(isDocActive);
+  const toolkitPaths = ["/resumes", "/cover-letters", "/resume-builder", "/career-profiles"];
+  const isToolkitActive = toolkitPaths.some((p) => location.pathname.startsWith(p));
+  const [toolkitOpen, setToolkitOpen] = useState(isToolkitActive);
 
   const navItems = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,7 +24,8 @@ const AppSidebar = () => {
     { to: "/my-companies", label: "Companies", icon: Building2 },
   ];
 
-  const docItems = [
+  const toolkitItems = [
+    { to: "/career-profiles", label: "Career Profiles", icon: UserCircle },
     { to: "/resumes", label: "My Resumes", icon: FileUp },
     { to: "/cover-letters", label: "Cover Letters", icon: PenTool },
     { to: "/resume-builder", label: "Resume Builder", icon: Sparkles },
@@ -64,26 +65,26 @@ const AppSidebar = () => {
           </RouterNavLink>
         ))}
 
-        {/* Documents Group */}
+        {/* Career Toolkit Group */}
         {!collapsed ? (
           <div className="pt-2">
             <button
-              onClick={() => setDocsOpen(!docsOpen)}
+              onClick={() => setToolkitOpen(!toolkitOpen)}
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
-                isDocActive
+                isToolkitActive
                   ? "text-accent-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
             >
-              <FolderOpen className="h-5 w-5 shrink-0" />
-              <span className="flex-1 text-left">Documents</span>
+              <Wrench className="h-5 w-5 shrink-0" />
+              <span className="flex-1 text-left">Career Toolkit</span>
               <ChevronDown
-                className={`h-4 w-4 transition-transform ${docsOpen ? "rotate-180" : ""}`}
+                className={`h-4 w-4 transition-transform ${toolkitOpen ? "rotate-180" : ""}`}
               />
             </button>
-            {docsOpen && (
+            {toolkitOpen && (
               <div className="ml-4 mt-1 space-y-0.5 border-l pl-3">
-                {docItems.map(({ to, label, icon: Icon }) => (
+                {toolkitItems.map(({ to, label, icon: Icon }) => (
                   <RouterNavLink
                     key={to}
                     to={to}
@@ -103,7 +104,7 @@ const AppSidebar = () => {
             )}
           </div>
         ) : (
-          docItems.map(({ to, icon: Icon }) => (
+          toolkitItems.map(({ to, icon: Icon }) => (
             <RouterNavLink
               key={to}
               to={to}
